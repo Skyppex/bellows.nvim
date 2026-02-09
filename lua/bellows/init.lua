@@ -463,8 +463,13 @@ function M.setup(opts)
 	M.config = vim.tbl_deep_extend("force", M.default_config, opts or {})
 
 	vim.api.nvim_create_autocmd({ "BufEnter", "BufWritePost", "TextChanged", "TextChangedI" }, {
-		pattern = "*.json",
 		callback = function(args)
+			local filetype = vim.api.nvim_get_option_value("filetype", { buf = args.buf })
+
+			if filetype ~= "json" then
+				return
+			end
+
 			vim.wo.foldtext = "v:lua.require('bellows').foldtext()"
 			M.render(args.buf)
 		end,
