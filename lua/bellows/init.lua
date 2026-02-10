@@ -832,25 +832,21 @@ local function format_pin_display(display_segments)
 	end
 
 	if #display_segments == 1 then
-		return '"' .. display_segments[1] .. '"'
+		return display_segments[1]
 	end
 
-	-- build the full version: "meta"."flags"."priority"
-	local parts = {}
-	for _, seg in ipairs(display_segments) do
-		table.insert(parts, '"' .. seg .. '"')
-	end
-	local full = table.concat(parts, ".")
+	-- build the full version: meta.flags.priority
+	local full = table.concat(display_segments, ".")
 
 	if #full <= M.config.pin_path_abbreviate_threshold then
 		return full
 	end
 
-	-- abbreviate: all segments except the last become first char only, no quotes
+	-- abbreviate: all segments except the last become first char only
 	local abbrev = {}
 	for i, seg in ipairs(display_segments) do
 		if i == #display_segments then
-			table.insert(abbrev, '"' .. seg .. '"')
+			table.insert(abbrev, seg)
 		else
 			table.insert(abbrev, seg:sub(1, 1))
 		end
