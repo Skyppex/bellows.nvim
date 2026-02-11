@@ -377,6 +377,12 @@ local function unfold_node_recursive(node)
 	-- then recursively unfold all children
 	for child in node:iter_children() do
 		local t = child:type()
+
+		if t == "pair" then
+			child = child:field("value")[1]
+			t = child:type()
+		end
+
 		if t == "array" or t == "object" then
 			unfold_node_recursive(child)
 		end
