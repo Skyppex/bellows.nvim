@@ -9,6 +9,7 @@
 --- @field state BellowsState
 --- @field enable_rendering function
 --- @field disable_rendering function
+--- @field should_render function<bufnr>
 --- @field is_on_closed_fold function<boolean>
 --- @field fold_closest_block function
 --- @field fold_closest_array function
@@ -38,6 +39,7 @@
 local M = {}
 
 --- @class BellowsOpts
+--- @field auto_enable boolean automatically enable bellows on all json files
 --- @field array_count_threshold integer minimum count before displaying the count
 --- @field array_count_threshold_folded integer minimum count before display the count when folded
 --- @field line_count boolean if number of lines should be shown when folded
@@ -59,11 +61,11 @@ M.default_config = {
 M.config = M.default_config
 
 --- @class BellowsState
---- @field rendering_enabled boolean
+--- @field rendering_enabled boolean | table<bufnr, boolean>
 --- @field array_counts table<bufnr, table<row, item_count>>
 --- @field pinned_paths table<bufnr, string[]>
 M.state = {
-	rendering_enabled = true,
+	rendering_enabled = false,
 	array_counts = {},
 	pinned_paths = {},
 }
@@ -389,12 +391,30 @@ local function unfold_node_recursive(node)
 	end
 end
 
-function M.enable_rendering()
-	M.state.rendering_enabled = true
+--- @param bufnr? integer
+function M.enable_rendering(bufnr)
+	if not bufnr then
+		M.state.rendering_enabled = true
+	else
+		if type(M.state.rendering_enabled) == "boolean" then
+			M.state.rendering_enabled = {}
+		end
+
+		M.state.rendering_enabled[bufnr] = true
+	end
 end
 
-function M.disable_rendering()
-	M.state.rendering_enabled = false
+--- @param bufnr? integer
+function M.disable_rendering(bufnr)
+	if not bufnr then
+		M.state.rendering_enabled = false
+	else
+		if type(M.state.rendering_enabled) == "boolean" then
+			M.state.rendering_enabled = {}
+		end
+
+		M.state.rendering_enabled[bufnr] = false
+	end
 end
 
 function M.is_on_closed_fold()
@@ -523,10 +543,23 @@ function M.clear_pins()
 	vim.cmd("redraw")
 end
 
+function M.should_render(bufnr)
+	if type(M.state.rendering_enabled) == "boolean" then
+		return M.state.rendering_enabled
+	elseif type(M.state.rendering_enabled) == "table" then
+		return M.state.rendering_enabled[bufnr] or false
+	else
+		return false
+	end
+end
+
 function M.render(bufnr)
-	if not M.state.rendering_enabled then
+	if not M.should_render(bufnr) then
+		vim.notify("skipping rendering")
 		return
 	end
+
+	vim.notify("rendering")
 
 	bufnr = bufnr or vim.api.nvim_get_current_buf()
 
@@ -1047,6 +1080,7 @@ end
 --- @param opts? BellowsOpts
 function M.setup(opts)
 	M.config = vim.tbl_deep_extend("force", M.default_config, opts or {})
+	M.state.rendering_enabled = opts and opts.auto_enable or true
 
 	vim.api.nvim_create_autocmd({ "BufEnter", "BufWritePost", "TextChanged", "TextChangedI" }, {
 		callback = function(args)
